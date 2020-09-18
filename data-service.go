@@ -9,17 +9,8 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-var sess *session.Session
-var svc *dynamodb.DynamoDB
 
-func init() {
-
-	sess = session.Must(session.NewSessionWithOptions(session.Options{
-		SharedConfigState: session.SharedConfigEnable,
-	}))
-
-	svc = dynamodb.New(sess)
-}
+const ITEM_NOT_FOUND = "Item not found"
 
 type Item struct {
 	Id     string
@@ -27,7 +18,27 @@ type Item struct {
 	Score  int
 }
 
-func retrieveItem(id string) (*Item, error) {
+type DynamoDataService struct {
+	sess *session.Session
+	svc *dynamodb.DynamoDB
+	tableName string
+}
+
+func NewDynamoDataService(tableName string) *DynamoDataService{
+	sess := session.Must(session.NewSessionWithOptions(session.Options{
+		SharedConfigState: session.SharedConfigEnable,
+	}))
+
+	svc := dynamodb.New(sess)
+
+	return &DynamoDataService{
+		sess: sess,
+		svc:  svc,
+		tableName: tableName,
+	}
+}
+
+func (ddr *DynamoDataService) RetrieveItem(id string) (*Item, error) {
 
 	input := &dynamodb.GetItemInput{
 		Key: map[string]*dynamodb.AttributeValue{
@@ -35,17 +46,17 @@ func retrieveItem(id string) (*Item, error) {
 				S: aws.String(id),
 			},
 		},
-		TableName: aws.String("malicious-urls"),
+		TableName: aws.String(ddr.tableName),
 	}
 
-	result, err := svc.GetItem(input)
+	result, err := ddr.svc.GetItem(input)
 	if err != nil {
 		log.Err(err).Send()
 		return nil, err
 	}
 
 	if result.Item == nil {
-		return nil, errors.New("Item Not Found")
+		return nil, errors.New(ITEM_NOT_FOUND)
 	}
 
 	dbItem := Item{}
@@ -55,4 +66,9 @@ func retrieveItem(id string) (*Item, error) {
 	}
 	log.Info().Interface("item", dbItem).Send()
 	return &dbItem, nil
+}
+
+
+func (ddr *DynamoDataService) InsertItem(item Item) error {
+	panic("implement me")
 }

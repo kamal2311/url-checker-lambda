@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/rs/zerolog/log"
+	"os"
 	"testing"
 )
 
@@ -38,14 +39,13 @@ func Test_retrieveItem(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ans, err := retrieveItem(tt.args.id)
+
+			tableName := os.Getenv("MC_TABLE_NAME")
+			dataService := NewDynamoDataService(tableName)
+
+			ans, err := dataService.RetrieveItem(tt.args.id)
 			if err != nil && !tt.shouldError {
 				t.Errorf("Expected an error but got %v", err)
-				return
-			}
-
-			if (tt.want == nil && ans !=nil) || (tt.want != nil && ans == nil) {
-				t.Errorf("expected %v, got %v", tt.want, ans)
 				return
 			}
 

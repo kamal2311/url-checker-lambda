@@ -6,7 +6,14 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type MaliciousUrlChecker struct { }
+type DataService interface {
+	RetrieveItem(id string) (*Item, error)
+	InsertItem(item Item) error
+}
+
+type MaliciousUrlChecker struct {
+	dataService DataService
+}
 
 type CheckerResponse struct {
 	IsSafe bool `json:"is_safe"`
@@ -14,25 +21,32 @@ type CheckerResponse struct {
 	Source string `json:"source,omitempty"`
 }
 
-func NewMaliciousUrlChecker() *MaliciousUrlChecker {
-	return &MaliciousUrlChecker{}
+func NewMaliciousUrlChecker(ds DataService) *MaliciousUrlChecker {
+	return &MaliciousUrlChecker{
+		dataService: ds,
+	}
 }
 
-func (m *MaliciousUrlChecker) EvaluateSafety(url string) CheckerResponse {
+func (m *MaliciousUrlChecker) EvaluateSafety(url string) (CheckerResponse, error) {
 
 	id := generateId(url)
-	item, err := retrieveItem(id)
-	if err != nil {
+	item, err := m.dataService.RetrieveItem(id)
+	if err != nil  {
+
+		if err.Error() != ITEM_NOT_FOUND {
+			return CheckerResponse{}, err
+		}
+
 		return CheckerResponse{
 			IsSafe: true,
-		}
+		}, nil
 	}
 
 	return CheckerResponse{
 		IsSafe: false,
 		Score:  item.Score,
 		Source: item.Source,
-	}
+	}, nil
 
 }
 
