@@ -7,8 +7,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 	"github.com/rs/zerolog/log"
+	"strconv"
 )
-
 
 const ITEM_NOT_FOUND = "Item not found"
 
@@ -19,12 +19,12 @@ type Item struct {
 }
 
 type DynamoDataService struct {
-	sess *session.Session
-	svc *dynamodb.DynamoDB
+	sess      *session.Session
+	svc       *dynamodb.DynamoDB
 	tableName string
 }
 
-func NewDynamoDataService(tableName string) *DynamoDataService{
+func NewDynamoDataService(tableName string) *DynamoDataService {
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
 	}))
@@ -32,13 +32,13 @@ func NewDynamoDataService(tableName string) *DynamoDataService{
 	svc := dynamodb.New(sess)
 
 	return &DynamoDataService{
-		sess: sess,
-		svc:  svc,
+		sess:      sess,
+		svc:       svc,
 		tableName: tableName,
 	}
 }
 
-func (ddr *DynamoDataService) RetrieveItem(id string) (*Item, error) {
+func (ddr *DynamoDataService) GetItem(id string) (*Item, error) {
 
 	input := &dynamodb.GetItemInput{
 		Key: map[string]*dynamodb.AttributeValue{
@@ -68,7 +68,22 @@ func (ddr *DynamoDataService) RetrieveItem(id string) (*Item, error) {
 	return &dbItem, nil
 }
 
+func (ddr *DynamoDataService) PutItem(item Item) error {
+	input := &dynamodb.PutItemInput{
+		TableName: aws.String(ddr.tableName),
+		Item: map[string]*dynamodb.AttributeValue{
+			"Id": {
+				S: aws.String(item.Id),
+			},
+			"Source": {
+				S: aws.String(item.Source),
+			},
+			"Score": {
+				N: aws.String(strconv.Itoa(item.Score)),
+			},
+		},
+	}
 
-func (ddr *DynamoDataService) InsertItem(item Item) error {
-	panic("implement me")
+	_, err := ddr.svc.PutItem(input)
+	return err
 }

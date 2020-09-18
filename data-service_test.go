@@ -14,7 +14,7 @@ func Test_retrieveItem(t *testing.T) {
 		name        string
 		args        args
 		shouldError bool
-		want *Item
+		want        *Item
 	}{
 		{
 			"should retrieve an item",
@@ -43,7 +43,7 @@ func Test_retrieveItem(t *testing.T) {
 			tableName := os.Getenv("MC_TABLE_NAME")
 			dataService := NewDynamoDataService(tableName)
 
-			ans, err := dataService.RetrieveItem(tt.args.id)
+			ans, err := dataService.GetItem(tt.args.id)
 			if err != nil && !tt.shouldError {
 				t.Errorf("Expected an error but got %v", err)
 				return

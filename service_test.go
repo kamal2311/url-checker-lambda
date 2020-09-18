@@ -8,7 +8,7 @@ import (
 
 type MockDataService struct{}
 
-func (MockDataService) RetrieveItem(id string) (*Item, error) {
+func (MockDataService) GetItem(id string) (*Item, error) {
 	mockData := make(map[string]*Item)
 	mockData["66b9cb08638d49a6d3559718551d59243fa2b0eb"] = &Item{
 		Id:     "66b9cb08638d49a6d3559718551d59243fa2b0eb",
@@ -28,11 +28,11 @@ func (MockDataService) RetrieveItem(id string) (*Item, error) {
 	return nil, errors.New(ITEM_NOT_FOUND)
 }
 
-func (MockDataService) InsertItem(item Item) error {
-	panic("implement me")
+func (MockDataService) PutItem(item Item) error {
+	return nil
 }
 
-func TestMaliciousUrlChecker_EvaluateSafety(t *testing.T) {
+func TestMaliciousUrlService_Check(t *testing.T) {
 	type args struct {
 		url string
 	}
@@ -75,14 +75,13 @@ func TestMaliciousUrlChecker_EvaluateSafety(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := &MaliciousUrlChecker{ MockDataService{}}
-			if got, _ := m.EvaluateSafety(tt.args.url); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("EvaluateSafety() = %v, want %v", got, tt.want)
+			m := &MaliciousUrlService{MockDataService{}}
+			if got, _ := m.Check(tt.args.url); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Check() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
-
 
 func Test_generateId(t *testing.T) {
 	type args struct {
@@ -119,6 +118,77 @@ func Test_generateId(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := generateId(tt.args.s); got != tt.want {
 				t.Errorf("generateId() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_validateAndDecode(t *testing.T) {
+	type args struct {
+		body string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    SaveItem
+		wantErr bool
+	}{
+		{
+			name: "url must not contain back-slashes",
+			args: args{body: "{ \"url\": \"some-bad-irl\\\\dfdfdfdfdf\"}"},
+			want: SaveItem{},
+			wantErr:true,
+		},
+		{
+			name: "valid url should be decoded properly",
+			args: args{body: "{ \"url\": \"good-url-1/123\" ,\"score\":1, \"source\":\"Sophos\"}"},
+			want: SaveItem{
+				Url:    "good-url-1/123",
+				Score:  1,
+				Source: "Sophos",
+			},
+			wantErr:false,
+		},
+		{
+			name: "score must not be negative",
+			args: args{body: "{ \"url\": \"good-url-1/123\" ,\"score\":-1, \"source\":\"Sophos\"}"},
+			want: SaveItem{},
+			wantErr:true,
+		},
+		{
+			name: "score must not be a non-integer",
+			args: args{body: "{ \"url\": \"good-url-1/123\" ,\"score\":1.5, \"source\":\"Sophos\"}"},
+			want: SaveItem{},
+			wantErr:true,
+		},
+		{
+			name: "score must not be larger than 10",
+			args: args{body: "{ \"url\": \"good-url-1/123\" ,\"score\":11, \"source\":\"Sophos\"}"},
+			want: SaveItem{},
+			wantErr:true,
+		},
+		{
+			name: "source must not be empty",
+			args: args{body: "{ \"url\": \"good-url-1/123\" ,\"score\":10, \"source\":\"\"}"},
+			want: SaveItem{},
+			wantErr:true,
+		},
+		{
+			name: "source must not longer than 20 characters",
+			args: args{body: "{ \"url\": \"good-url-1/123\" ,\"score\":10, \"source\":\"0102030405060708092021\"}"},
+			want: SaveItem{},
+			wantErr:true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := validateAndDecode(tt.args.body)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateAndDecode() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("validateAndDecode() got = %v, want %v", got, tt.want)
 			}
 		})
 	}
